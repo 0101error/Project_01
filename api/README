@@ -1,0 +1,62 @@
+# Simple Smart Hub - ESP32 Wokwi C++ Client
+
+This project is the ESP32 client for the Simple Smart Hub, designed for simulation in Wokwi. It interfaces with a Python FastAPI backend (exposed via ngrok) to send environmental sensor data (temperature and presence) and receive control commands for a light and a fan.
+
+## Purpose
+
+This C++ application for the ESP32 was developed as part of the ECSE3038 Project requirements. It demonstrates IoT device functionality by reading sensors, communicating with a web API, and actuating outputs based on logic processed by the API. This version is specifically tailored for the Wokwi simulation environment using PlatformIO and the Arduino framework.
+
+## Expected Behaviour of Functions
+
+### `setup()`
+Initializes serial communication for debugging and user feedback.
+Configures GPIO pins connected to the light control, fan control, and PIR motion sensor as outputs or inputs according to `env.h`.
+Sets the initial state of the light and fan controls to OFF.
+Initializes the DS18B20 temperature sensor, attempts to find its address, and sets its resolution.
+Calls `connectToWiFi()` to establish a network connection.
+Configures the `WiFiClientSecure` object to allow insecure HTTPS connections by calling `client.setInsecure()`, which is necessary for development with ngrok's free tier.
+
+### `loop()`
+Continuously checks the Wi-Fi connection status. If disconnected, it attempts to reconnect and skips the current iteration.
+At a defined interval (`apiCallInterval`), it performs the following actions:
+  Reads the current temperature using `readTemperature()`.
+  Detects presence using `readPresence()`.
+  Prints the collected sensor readings to the Serial Monitor.
+  Calls `updateStateWithServer()` to transmit sensor data to the FastAPI backend and receive actuator commands.
+Includes a short delay to maintain system responsiveness.
+
+### `connectToWiFi()`
+Initiates a connection to the Wi-Fi network using credentials (SSID, Password, Channel) defined in `env.h`.
+Sets the ESP32 to Wi-Fi station mode.
+Prints connection progress and status, including the assigned IP address upon success, to the Serial Monitor.
+Distinguishes between Wokwi simulation and physical device Wi-Fi setup based on the `IS_WOKWI` flag from `env.h`.
+
+### `readTemperature()`
+Requests a temperature reading from the DS18B20 sensor.
+Returns the temperature in Celsius.
+If the sensor was not found during setup or if a read error occurs (e.g., device disconnected), it returns -127.0 as an error indicator.
+
+### `readPresence()`
+Reads the digital state of the PIR motion sensor pin defined in `env.h`.
+Returns `true` if motion is detected (PIR output is HIGH), and `false` otherwise.
+
+### `updateStateWithServer(float temperature, bool presence)`
+Checks for an active Wi-Fi connection before proceeding.
+Constructs a JSON payload containing the current temperature and presence status. The temperature is sent as `null` if the reading was erroneous.
+Establishes an HTTPS connection to the API endpoint (`API_BASE_URL` + `API_DEVICE_UPDATE_ENDPOINT` from `env.h`) using the global `WiFiClientSecure` instance.
+Sends the JSON payload via an HTTP POST request.
+Prints the request body and the server's HTTP response code and payload to the Serial Monitor.
+If the server responds with HTTP_CODE_OK (200), it parses the JSON response, expecting `light_on` and `fan_on` boolean fields.
+Calls `controlDevice()` to set the state of the light and fan based on these received commands.
+If any error occurs during the HTTP request, JSON parsing, or if the server returns a non-OK status, it defaults to turning both light and fan OFF as a safety measure.
+Ensures `http.end()` is called to release resources.
+
+### `controlDevice(int pin, bool turnOn, const char* deviceName)`
+Controls the state of a device connected to the specified `pin`.
+If `turnOn` is `true` and the device is currently off, it sets the pin HIGH.
+If `turnOn` is `false` and the device is currently on, it sets the pin LOW.
+Prints a message to the Serial Monitor indicating the action taken and the device name, but only if the state changes.
+
+## Riddle
+
+I have cities, but no houses. I have mountains, but no trees. I have water, but no fish. What am I?
